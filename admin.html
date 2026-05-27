@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CoC Challenge Manager</title>
+<title>CoC Card Tracker</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script src="config.js"></script>
@@ -274,16 +274,16 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 </div>
 
 <header>
-  <div class="logo">⚔️ CoC Challenges</div>
+  <div class="logo">⚔️ CoC Card Tracker</div>
   <div class="week-label">
-    <span id="week-label" onclick="editWeek()">Monthly Challenges</span>
+    <span id="week-label" onclick="editWeek()">Monthly Cards</span>
   </div>
   <button class="btn btn-outline" onclick="newWeek()">🔄 New Month</button>
-  <button class="btn btn-gold" onclick="openModal()">+ Add Challenge</button>
+  <button class="btn btn-gold" onclick="openModal()">+ Add Card</button>
 </header>
 
 <div class="stats">
-  <div class="stat"><div class="stat-value" id="s-total">0</div><div class="stat-label">Challenges</div></div>
+  <div class="stat"><div class="stat-value" id="s-total">0</div><div class="stat-label">Cards</div></div>
   <div class="stat"><div class="stat-value" id="s-done">0</div><div class="stat-label">Completed</div></div>
   <div class="stat"><div class="stat-value" id="s-pts-earned">0</div><div class="stat-label">Points Earned</div></div>
   <div class="stat"><div class="stat-value" id="s-pts-total">0</div><div class="stat-label">Points Available</div></div>
@@ -292,7 +292,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <table>
   <thead>
     <tr>
-      <th style="width:38%">Challenge</th>
+      <th style="width:38%">Card</th>
       <th>Progress</th>
       <th>Points</th>
       <th>Status</th>
@@ -305,13 +305,13 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 <div class="backdrop" id="modal">
   <div class="modal">
-    <h2>Add Challenge</h2>
+    <h2>Add Card</h2>
     <div class="fg">
-      <label>Challenge Name</label>
-      <input type="text" id="m-name" placeholder="e.g. Win 5 attacks with Barbarian King">
+      <label>Card Label</label>
+      <input type="text" id="m-name" placeholder="e.g. May 27">
     </div>
     <div class="form-row">
-      <div class="fg"><label>Target</label><input type="number" id="m-total" value="1" min="1"></div>
+      <div class="fg"><label>Target</label><input type="number" id="m-total" value="8" min="1"></div>
       <div class="fg"><label>Points</label><input type="number" id="m-points" value="0" min="0"></div>
     </div>
     <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
@@ -340,7 +340,7 @@ let weekLabel = '';
 async function load() {
   const snap = await db.ref('/').once('value');
   const data = snap.val() || {};
-  weekLabel = data.weekLabel || 'Monthly Challenges';
+  weekLabel = data.weekLabel || 'Monthly Cards';
   const ch = data.challenges || {};
   challenges = Object.entries(ch)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -355,7 +355,7 @@ function blurOnEnter(e) { if (e.key === 'Enter') { e.preventDefault(); e.target.
 function render() {
   const tbody = document.getElementById('tbody');
   if (!challenges.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="icon">🏰</div><p>No challenges yet — click <strong>Add Challenge</strong> to get started.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="icon">🏰</div><p>No cards yet — click <strong>Add Card</strong> to get started.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = challenges.map(renderRow).join('');
   }
@@ -454,7 +454,7 @@ function editTotal(id) {
 }
 
 async function del(id) {
-  if (!confirm('Delete this challenge?')) return;
+  if (!confirm('Delete this card?')) return;
   await db.ref(`/challenges/${id}`).remove();
   challenges = challenges.filter(x => x.id !== id);
   render();
@@ -479,7 +479,7 @@ function editWeek() {
 function newWeek() {
   const v = prompt('New month label:', weekLabel);
   if (v === null) return;
-  if (!confirm('Reset all challenge progress to 0?')) return;
+  if (!confirm('Reset all card progress to 0?')) return;
   weekLabel = v.trim() || weekLabel;
   const updates = { '/weekLabel': weekLabel };
   challenges.forEach(c => { updates[`/challenges/${c.id}/current`] = 0; c.current = 0; });
