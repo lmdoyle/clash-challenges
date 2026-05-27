@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CoC Challenge Manager</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="config.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -67,7 +70,6 @@ header {
 
 .stats {
   display: flex;
-  gap: 0;
   margin-bottom: 24px;
   background: var(--surface);
   border-radius: var(--radius);
@@ -85,7 +87,6 @@ header {
 .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .row-hidden td { background: rgba(92, 26, 0, 0.15) !important; }
-.row-hidden td:hover { background: rgba(92, 26, 0, 0.25) !important; }
 
 .hide-btn {
   background: transparent;
@@ -216,7 +217,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .empty .icon { font-size: 44px; margin-bottom: 10px; }
 .empty p { font-size: 15px; }
 
-/* Modal */
 .backdrop {
   display: none;
   position: fixed; inset: 0;
@@ -238,7 +238,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 
 .fg { margin-bottom: 15px; }
 .fg label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
-.fg input {
+.fg input[type="text"], .fg input[type="number"] {
   width: 100%;
   padding: 10px 12px;
   background: var(--bg);
@@ -254,9 +254,24 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 .form-row .fg { flex: 1; }
 
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+#setup-note {
+  background: rgba(212,160,23,0.1);
+  border: 1px solid rgba(212,160,23,0.3);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  font-size: 14px;
+  color: var(--gold-light);
+  display: none;
+}
 </style>
 </head>
 <body>
+
+<div id="setup-note">
+  ⚠️ Firebase is not configured yet. Open <strong>config.js</strong> and paste in your Firebase project credentials.
+</div>
 
 <header>
   <div class="logo">⚔️ CoC Challenges</div>
@@ -268,22 +283,10 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 </header>
 
 <div class="stats">
-  <div class="stat">
-    <div class="stat-value" id="s-total">0</div>
-    <div class="stat-label">Challenges</div>
-  </div>
-  <div class="stat">
-    <div class="stat-value" id="s-done">0</div>
-    <div class="stat-label">Completed</div>
-  </div>
-  <div class="stat">
-    <div class="stat-value" id="s-pts-earned">0</div>
-    <div class="stat-label">Points Earned</div>
-  </div>
-  <div class="stat">
-    <div class="stat-value" id="s-pts-total">0</div>
-    <div class="stat-label">Points Available</div>
-  </div>
+  <div class="stat"><div class="stat-value" id="s-total">0</div><div class="stat-label">Challenges</div></div>
+  <div class="stat"><div class="stat-value" id="s-done">0</div><div class="stat-label">Completed</div></div>
+  <div class="stat"><div class="stat-value" id="s-pts-earned">0</div><div class="stat-label">Points Earned</div></div>
+  <div class="stat"><div class="stat-value" id="s-pts-total">0</div><div class="stat-label">Points Available</div></div>
 </div>
 
 <table>
@@ -300,7 +303,6 @@ tr:hover td { background: rgba(255,255,255,0.02); }
   <tbody id="tbody"></tbody>
 </table>
 
-<!-- Add Modal -->
 <div class="backdrop" id="modal">
   <div class="modal">
     <h2>Add Challenge</h2>
@@ -309,14 +311,8 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <input type="text" id="m-name" placeholder="e.g. Win 5 attacks with Barbarian King">
     </div>
     <div class="form-row">
-      <div class="fg">
-        <label>Target</label>
-        <input type="number" id="m-total" value="1" min="1">
-      </div>
-      <div class="fg">
-        <label>Points</label>
-        <input type="number" id="m-points" value="0" min="0">
-      </div>
+      <div class="fg"><label>Target</label><input type="number" id="m-total" value="1" min="1"></div>
+      <div class="fg"><label>Points</label><input type="number" id="m-points" value="0" min="0"></div>
     </div>
     <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
       <input type="checkbox" id="m-hidden" style="width:auto;accent-color:var(--gold)">
@@ -330,26 +326,42 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 </div>
 
 <script>
-let challenges = [], weekLabel = '';
+// Check config
+if (FIREBASE_CONFIG.apiKey === 'PASTE_YOUR_API_KEY_HERE') {
+  document.getElementById('setup-note').style.display = 'block';
+}
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+
+let challenges = [];
+let weekLabel = '';
 
 async function load() {
-  const d = await fetch('/api/data').then(r => r.json());
-  challenges = d.challenges;
-  weekLabel = d.weekLabel;
+  const snap = await db.ref('/').once('value');
+  const data = snap.val() || {};
+  weekLabel = data.weekLabel || 'Weekly Challenges';
+  const ch = data.challenges || {};
+  challenges = Object.entries(ch)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, c]) => ({ id, ...c }));
   document.getElementById('week-label').textContent = weekLabel;
   render();
 }
 
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function blurOnEnter(e) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') e.target.blur(); }
+
 function render() {
   const tbody = document.getElementById('tbody');
   if (!challenges.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="icon">🏰</div><p>No challenges yet — click <strong>Add Challenge</strong> to get started.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="icon">🏰</div><p>No challenges yet — click <strong>Add Challenge</strong> to get started.</p></div></td></tr>`;
   } else {
     tbody.innerHTML = challenges.map(renderRow).join('');
   }
-  const done = challenges.filter(c => c.current >= c.total).length;
-  const ptsEarned = challenges.filter(c => c.current >= c.total).reduce((s,c) => s + c.points, 0);
-  const ptsTotal = challenges.reduce((s,c) => s + c.points, 0);
+  const done = challenges.filter(c => !c.hidden && c.current >= c.total).length;
+  const ptsEarned = challenges.filter(c => !c.hidden && c.current >= c.total).reduce((s,c) => s + c.points, 0);
+  const ptsTotal = challenges.filter(c => !c.hidden).reduce((s,c) => s + c.points, 0);
   document.getElementById('s-total').textContent = challenges.length;
   document.getElementById('s-done').textContent = done;
   document.getElementById('s-pts-earned').textContent = ptsEarned.toLocaleString();
@@ -362,125 +374,114 @@ function renderRow(c) {
   let statusBadge;
   if (c.hidden) statusBadge = `<span style="color:#cd853f;font-size:13px">Hidden</span>`;
   else if (done) statusBadge = `<span class="done-badge">✓ Done</span>`;
-  else if (c.current > 0) statusBadge = `<span style="color:#f0c040;font-size:13px">In Progress</span>`;
+  else if (c.current > 0) statusBadge = `<span style="color:var(--gold-light);font-size:13px">In Progress</span>`;
   else statusBadge = `<span style="color:var(--text-muted);font-size:13px">Not Started</span>`;
 
-  const hideBtnClass = c.hidden ? 'hide-btn is-hidden' : 'hide-btn';
-  const hideBtnLabel = c.hidden ? '🔒 Hidden' : '👁 Visible';
-
   return `<tr data-id="${c.id}" class="${c.hidden ? 'row-hidden' : ''}">
-    <td>
-      <span class="challenge-name" contenteditable="true"
-        onblur="saveName('${c.id}',this)"
-        onkeydown="blurOnEnter(event)">
-        ${esc(c.name)}
-      </span>
-    </td>
+    <td><span class="challenge-name" contenteditable="true" onblur="saveName('${c.id}',this)" onkeydown="blurOnEnter(event)">${esc(c.name)}</span></td>
     <td>
       <div class="progress-cell">
         <button class="pbtn" onclick="adj('${c.id}',-1)" ${c.current<=0?'disabled':''}>−</button>
         <span class="fraction">
           <span class="cur" style="${curColor}">${c.current}</span>
           <span class="sep"> / </span>
-          <span class="tot" onclick="editTotal('${c.id}',this)" title="Click to edit target">${c.total}</span>
+          <span class="tot" onclick="editTotal('${c.id}')" title="Click to edit target">${c.total}</span>
         </span>
         <button class="pbtn" onclick="adj('${c.id}',1)" ${c.current>=c.total?'disabled':''}>+</button>
       </div>
     </td>
     <td>
-      <span class="points-field" contenteditable="true"
-        onblur="savePoints('${c.id}',this)"
-        onkeydown="blurOnEnter(event)">
-        ${c.points}
-      </span>
+      <span class="points-field" contenteditable="true" onblur="savePoints('${c.id}',this)" onkeydown="blurOnEnter(event)">${c.points}</span>
       <span style="color:var(--text-muted);font-size:13px"> pts</span>
     </td>
     <td>${statusBadge}</td>
-    <td><button class="${hideBtnClass}" onclick="toggleHidden('${c.id}')">${hideBtnLabel}</button></td>
-    <td><button class="del-btn" onclick="del('${c.id}')" title="Delete">✕</button></td>
+    <td><button class="hide-btn ${c.hidden?'is-hidden':''}" onclick="toggleHidden('${c.id}')">${c.hidden?'🔒 Hidden':'👁 Visible'}</button></td>
+    <td><button class="del-btn" onclick="del('${c.id}')">✕</button></td>
   </tr>`;
 }
 
-function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-function blurOnEnter(e) { if(e.key==='Enter'){e.preventDefault();e.target.blur();} if(e.key==='Escape')e.target.blur(); }
-
 async function adj(id, delta) {
-  const c = challenges.find(x=>x.id===id);
+  const c = challenges.find(x => x.id === id);
   if (!c) return;
   const nv = Math.max(0, Math.min(c.total, c.current + delta));
   if (nv === c.current) return;
-  await api('PATCH', `/api/challenges/${id}`, {current:nv});
+  await db.ref(`/challenges/${id}/current`).set(nv);
   c.current = nv;
   render();
 }
 
 async function saveName(id, el) {
   const name = el.textContent.trim();
-  const c = challenges.find(x=>x.id===id);
-  if (!c || !name || c.name===name) return;
-  await api('PATCH', `/api/challenges/${id}`, {name});
+  const c = challenges.find(x => x.id === id);
+  if (!c || !name || c.name === name) return;
+  await db.ref(`/challenges/${id}/name`).set(name);
   c.name = name;
 }
 
 async function savePoints(id, el) {
   const pts = parseInt(el.textContent) || 0;
-  const c = challenges.find(x=>x.id===id);
-  if (!c || c.points===pts) return;
-  await api('PATCH', `/api/challenges/${id}`, {points:pts});
+  const c = challenges.find(x => x.id === id);
+  if (!c || c.points === pts) return;
+  await db.ref(`/challenges/${id}/points`).set(pts);
   c.points = pts;
   render();
 }
 
-function editTotal(id, el) {
-  const c = challenges.find(x=>x.id===id);
+function editTotal(id) {
+  const c = challenges.find(x => x.id === id);
   if (!c) return;
   const val = prompt('Set target amount:', c.total);
-  if (val===null) return;
-  const t = Math.max(1, parseInt(val)||1);
-  api('PATCH', `/api/challenges/${id}`, {total:t, current:Math.min(c.current,t)}).then(()=>{
-    c.total=t; c.current=Math.min(c.current,t); render();
+  if (val === null) return;
+  const t = Math.max(1, parseInt(val) || 1);
+  const cur = Math.min(c.current, t);
+  db.ref(`/challenges/${id}`).update({ total: t, current: cur }).then(() => {
+    c.total = t; c.current = cur; render();
   });
+}
+
+async function del(id) {
+  if (!confirm('Delete this challenge?')) return;
+  await db.ref(`/challenges/${id}`).remove();
+  challenges = challenges.filter(x => x.id !== id);
+  render();
 }
 
 async function toggleHidden(id) {
   const c = challenges.find(x => x.id === id);
   if (!c) return;
-  await api('PATCH', `/api/challenges/${id}`, { hidden: !c.hidden });
+  await db.ref(`/challenges/${id}/hidden`).set(!c.hidden);
   c.hidden = !c.hidden;
-  render();
-}
-
-async function del(id) {
-  if (!confirm('Delete this challenge?')) return;
-  await api('DELETE', `/api/challenges/${id}`);
-  challenges = challenges.filter(x=>x.id!==id);
   render();
 }
 
 function editWeek() {
   const v = prompt('Week label:', weekLabel);
-  if (v===null) return;
+  if (v === null) return;
   weekLabel = v || weekLabel;
   document.getElementById('week-label').textContent = weekLabel;
-  api('POST','/api/week',{label:weekLabel});
+  db.ref('/weekLabel').set(weekLabel);
 }
 
 function newWeek() {
-  const v = prompt('New week label (leave blank to keep current):', weekLabel);
-  if (v===null) return;
+  const v = prompt('New week label:', weekLabel);
+  if (v === null) return;
   if (!confirm('Reset all challenge progress to 0?')) return;
-  const label = v.trim() || weekLabel;
-  api('POST','/api/new-week',{label}).then(()=>load());
+  weekLabel = v.trim() || weekLabel;
+  const updates = { '/weekLabel': weekLabel };
+  challenges.forEach(c => { updates[`/challenges/${c.id}/current`] = 0; c.current = 0; });
+  db.ref().update(updates).then(() => {
+    document.getElementById('week-label').textContent = weekLabel;
+    render();
+  });
 }
 
-// Add modal
 function openModal() {
-  document.getElementById('m-name').value='';
-  document.getElementById('m-total').value='1';
-  document.getElementById('m-points').value='0';
-  document.getElementById('m-hidden').checked=false;
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-total').value = '1';
+  document.getElementById('m-points').value = '0';
+  document.getElementById('m-hidden').checked = false;
   document.getElementById('modal').classList.add('open');
-  setTimeout(()=>document.getElementById('m-name').focus(), 60);
+  setTimeout(() => document.getElementById('m-name').focus(), 60);
 }
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
 
@@ -488,28 +489,18 @@ async function addChallenge() {
   const hidden = document.getElementById('m-hidden').checked;
   const name = document.getElementById('m-name').value.trim() || (hidden ? 'Not Revealed Yet' : '');
   if (!name) { document.getElementById('m-name').focus(); return; }
-  const total = parseInt(document.getElementById('m-total').value)||1;
-  const points = parseInt(document.getElementById('m-points').value)||0;
-  const c = await api('POST','/api/challenges',{name,total,points,hidden});
-  challenges.push(c);
+  const total = parseInt(document.getElementById('m-total').value) || 1;
+  const points = parseInt(document.getElementById('m-points').value) || 0;
+  const newRef = db.ref('/challenges').push();
+  const c = { name, current: 0, total, points, hidden: !!hidden };
+  await newRef.set(c);
+  challenges.push({ id: newRef.key, ...c });
   render();
   closeModal();
 }
 
-document.addEventListener('keydown', e=>{
-  if(e.key==='Escape') closeModal();
-});
-document.getElementById('modal').addEventListener('click', e=>{
-  if(e.target===e.currentTarget) closeModal();
-});
-
-async function api(method, url, body) {
-  const opts = { method, headers:{'Content-Type':'application/json'} };
-  if (body) opts.body = JSON.stringify(body);
-  const r = await fetch(url, opts);
-  if (!r.ok) return null;
-  return r.json().catch(()=>null);
-}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.getElementById('modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
 
 load();
 </script>

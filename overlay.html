@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <title>CoC Challenge Overlay</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="config.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -46,7 +49,6 @@ body {
   display: flex;
   border-top: 2px solid #000;
 }
-
 .card-nums .n {
   flex: 1;
   text-align: center;
@@ -56,39 +58,24 @@ body {
   color: white;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
 }
-
 .card-nums .n:first-child { border-right: 2px solid #000; }
 
-.card-bar {
-  height: 10px;
-  border-top: 2px solid #000;
-  background: rgba(0,0,0,0.25);
-}
+.card-bar { height: 10px; border-top: 2px solid #000; background: rgba(0,0,0,0.25); }
+.card-bar-fill { height: 100%; transition: width 0.4s ease; }
 
-.card-bar-fill {
-  height: 100%;
-  transition: width 0.4s ease;
-}
-
-/* Status colors */
 .s-red    { background: #cc1111; }
 .s-red    .card-bar-fill { background: #ff7777; }
-
 .s-yellow { background: #b07a00; }
 .s-yellow .card-bar-fill { background: #ffd700; }
-
 .s-green  { background: #117a11; }
 .s-green  .card-bar-fill { background: #55ee55; }
-
 .s-hidden { background: #5c1a00; }
 
-/* Bottom strip */
 .bottom {
   background: #2255cc;
   border-top: 2px solid #000;
   padding: 10px 16px 12px;
 }
-
 .legend {
   text-align: center;
   font-weight: 700;
@@ -97,49 +84,22 @@ body {
   margin-bottom: 8px;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
 }
-
-.pts-row {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 5px;
-}
-
-.pts-label {
-  font-size: 22px;
-  font-weight: 700;
-  color: white;
-  text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
-}
-
-.pts-bar-track {
-  height: 20px;
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(0,0,0,0.4);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.pts-bar-fill {
-  height: 100%;
-  background: #0033bb;
-  transition: width 0.5s ease;
-}
+.pts-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.pts-label { font-size: 22px; font-weight: 700; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.4); }
+.pts-bar-track { height: 20px; background: rgba(0,0,0,0.3); border: 1px solid rgba(0,0,0,0.4); border-radius: 2px; overflow: hidden; }
+.pts-bar-fill { height: 100%; background: #0033bb; transition: width 0.5s ease; }
 </style>
 </head>
 <body>
 
 <div class="challenge-grid" id="grid"></div>
 <div class="bottom">
-  <div class="legend">
-    Red = Not Started &nbsp;·&nbsp; Yellow = Working on it &nbsp;·&nbsp; Green = Done &nbsp;·&nbsp; Brown = Not Revealed Yet
-  </div>
+  <div class="legend">Red = Not Started &nbsp;·&nbsp; Yellow = Working on it &nbsp;·&nbsp; Green = Done &nbsp;·&nbsp; Brown = Not Revealed Yet</div>
   <div class="pts-row">
     <span class="pts-label" id="pts-earned">0</span>
     <span class="pts-label" id="pts-total">0</span>
   </div>
-  <div class="pts-bar-track">
-    <div class="pts-bar-fill" id="pts-bar" style="width:0%"></div>
-  </div>
+  <div class="pts-bar-track"><div class="pts-bar-fill" id="pts-bar" style="width:0%"></div></div>
 </div>
 
 <script>
@@ -156,48 +116,42 @@ function cardStatus(c) {
 }
 
 function render(data) {
-  const grid = document.getElementById('grid');
+  const ch = data.challenges || {};
+  const challenges = Object.entries(ch)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([id, c]) => ({ id, ...c }));
 
-  grid.innerHTML = data.challenges.map(c => {
+  document.getElementById('grid').innerHTML = challenges.map(c => {
     const status = cardStatus(c);
     const isHidden = status === 'hidden';
     const pct = !isHidden && c.total > 0 ? Math.min(100, Math.round(c.current / c.total * 100)) : 0;
-    const title = isHidden ? 'Not Revealed Yet' : esc(c.name);
-    const cur = isHidden ? 0 : c.current;
-    const tot = isHidden ? 1 : c.total;
-
     return `
       <div class="card s-${status}">
-        <div class="card-title">${title}</div>
+        <div class="card-title">${isHidden ? 'Not Revealed Yet' : esc(c.name)}</div>
         <div class="card-nums">
-          <span class="n">${cur}</span>
-          <span class="n">${tot}</span>
+          <span class="n">${isHidden ? 0 : c.current}</span>
+          <span class="n">${isHidden ? 1 : c.total}</span>
         </div>
-        <div class="card-bar">
-          <div class="card-bar-fill" style="width:${pct}%"></div>
-        </div>
+        <div class="card-bar"><div class="card-bar-fill" style="width:${pct}%"></div></div>
       </div>`;
   }).join('');
 
-  const visible = data.challenges.filter(c => !c.hidden);
-  const ptsEarned = visible.filter(c => c.current >= c.total).reduce((s, c) => s + c.points, 0);
-  const ptsTotal = visible.reduce((s, c) => s + c.points, 0);
+  const visible = challenges.filter(c => !c.hidden);
+  const ptsEarned = visible.filter(c => c.current >= c.total).reduce((s,c) => s + c.points, 0);
+  const ptsTotal = visible.reduce((s,c) => s + c.points, 0);
   const pct = ptsTotal > 0 ? Math.round(ptsEarned / ptsTotal * 100) : 0;
-
   document.getElementById('pts-earned').textContent = ptsEarned.toLocaleString();
   document.getElementById('pts-total').textContent = ptsTotal.toLocaleString();
   document.getElementById('pts-bar').style.width = pct + '%';
 }
 
-async function refresh() {
-  try {
-    const data = await fetch('/api/data').then(r => r.json());
-    render(data);
-  } catch(e) {}
-}
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
 
-refresh();
-setInterval(refresh, 3000);
+// Real-time listener — updates the overlay the instant you change anything in admin
+db.ref('/').on('value', snap => {
+  render(snap.val() || {});
+});
 </script>
 </body>
 </html>
