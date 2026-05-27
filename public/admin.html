@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoC Challenge Manager</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #21262d;
+  --gold: #d4a017;
+  --gold-light: #f0c040;
+  --green: #3fb950;
+  --red: #f85149;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --border: #30363d;
+  --radius: 8px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 28px 32px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.logo { font-size: 22px; font-weight: 700; color: var(--gold-light); }
+
+.week-label { flex: 1; font-size: 15px; color: var(--text-muted); }
+.week-label span {
+  cursor: pointer;
+  border-bottom: 1px dashed var(--border);
+  padding-bottom: 2px;
+}
+.week-label span:hover { color: var(--text); border-color: var(--gold); }
+
+.btn {
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn:hover { opacity: 0.82; }
+.btn-gold { background: var(--gold); color: #000; }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+.btn-outline:hover { border-color: var(--gold); color: var(--gold); opacity: 1; }
+
+.stats {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.stat {
+  flex: 1;
+  padding: 14px 20px;
+  text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat:last-child { border-right: none; }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--gold-light); }
+.stat-label { font-size: 11px; color: var(--text-muted); margin-top: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.row-hidden td { background: rgba(92, 26, 0, 0.15) !important; }
+.row-hidden td:hover { background: rgba(92, 26, 0, 0.25) !important; }
+
+.hide-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+.hide-btn:hover { border-color: #8b4513; color: #cd853f; }
+.hide-btn.is-hidden { border-color: #8b4513; color: #cd853f; background: rgba(92,26,0,0.2); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+th {
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+
+.challenge-name {
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 180px;
+  outline: none;
+  border-radius: 4px;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  cursor: text;
+}
+.challenge-name:focus { background: var(--bg); outline: 2px solid var(--gold); }
+
+.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.pbtn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.pbtn:hover { border-color: var(--gold); color: var(--gold); background: rgba(212,160,23,0.1); }
+.pbtn:disabled { opacity: 0.25; cursor: not-allowed; }
+.pbtn:disabled:hover { border-color: var(--border); color: var(--text); background: var(--surface2); }
+
+.fraction { font-size: 14px; min-width: 52px; text-align: center; }
+.fraction .cur { font-weight: 700; font-size: 17px; }
+.fraction .sep { color: var(--text-muted); }
+.fraction .tot { color: var(--text-muted); cursor: pointer; border-bottom: 1px dashed transparent; }
+.fraction .tot:hover { border-color: var(--gold); color: var(--text); }
+
+.done-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 10px;
+  background: rgba(63,185,80,0.12);
+  border: 1px solid rgba(63,185,80,0.35);
+  border-radius: 20px;
+  color: var(--green);
+  font-size: 12px; font-weight: 600;
+}
+
+.points-field {
+  font-weight: 600;
+  color: var(--gold-light);
+  outline: none;
+  border-radius: 4px;
+  padding: 3px 6px;
+  margin: -3px -6px;
+  cursor: text;
+  display: inline-block;
+  min-width: 40px;
+}
+.points-field:focus { background: var(--bg); outline: 2px solid var(--gold); }
+
+.del-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.12s;
+}
+.del-btn:hover { color: var(--red); background: rgba(248,81,73,0.1); }
+
+.empty {
+  text-align: center;
+  padding: 56px 20px;
+  color: var(--text-muted);
+}
+.empty .icon { font-size: 44px; margin-bottom: 10px; }
+.empty p { font-size: 15px; }
+
+/* Modal */
+.backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72);
+  align-items: center; justify-content: center;
+  z-index: 100;
+}
+.backdrop.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 26px;
+  width: 420px;
+  max-width: 92vw;
+}
+.modal h2 { margin-bottom: 20px; font-size: 17px; color: var(--gold-light); }
+
+.fg { margin-bottom: 15px; }
+.fg label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+.fg input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+.fg input:focus { border-color: var(--gold); }
+
+.form-row { display: flex; gap: 12px; }
+.form-row .fg { flex: 1; }
+
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">⚔️ CoC Challenges</div>
+  <div class="week-label">
+    <span id="week-label" onclick="editWeek()">Weekly Challenges</span>
+  </div>
+  <button class="btn btn-outline" onclick="newWeek()">🔄 New Week</button>
+  <button class="btn btn-gold" onclick="openModal()">+ Add Challenge</button>
+</header>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-value" id="s-total">0</div>
+    <div class="stat-label">Challenges</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="s-done">0</div>
+    <div class="stat-label">Completed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="s-pts-earned">0</div>
+    <div class="stat-label">Points Earned</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" id="s-pts-total">0</div>
+    <div class="stat-label">Points Available</div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:38%">Challenge</th>
+      <th>Progress</th>
+      <th>Points</th>
+      <th>Status</th>
+      <th>Overlay</th>
+      <th style="width:48px"></th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<!-- Add Modal -->
+<div class="backdrop" id="modal">
+  <div class="modal">
+    <h2>Add Challenge</h2>
+    <div class="fg">
+      <label>Challenge Name</label>
+      <input type="text" id="m-name" placeholder="e.g. Win 5 attacks with Barbarian King">
+    </div>
+    <div class="form-row">
+      <div class="fg">
+        <label>Target</label>
+        <input type="number" id="m-total" value="1" min="1">
+      </div>
+      <div class="fg">
+        <label>Points</label>
+        <input type="number" id="m-points" value="0" min="0">
+      </div>
+    </div>
+    <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+      <input type="checkbox" id="m-hidden" style="width:auto;accent-color:var(--gold)">
+      <label for="m-hidden" style="margin:0;cursor:pointer">Mark as Hidden (Not Revealed Yet on overlay)</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-gold" onclick="addChallenge()">Add</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let challenges = [], weekLabel = '';
+
+async function load() {
+  const d = await fetch('/api/data').then(r => r.json());
+  challenges = d.challenges;
+  weekLabel = d.weekLabel;
+  document.getElementById('week-label').textContent = weekLabel;
+  render();
+}
+
+function render() {
+  const tbody = document.getElementById('tbody');
+  if (!challenges.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="icon">🏰</div><p>No challenges yet — click <strong>Add Challenge</strong> to get started.</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = challenges.map(renderRow).join('');
+  }
+  const done = challenges.filter(c => c.current >= c.total).length;
+  const ptsEarned = challenges.filter(c => c.current >= c.total).reduce((s,c) => s + c.points, 0);
+  const ptsTotal = challenges.reduce((s,c) => s + c.points, 0);
+  document.getElementById('s-total').textContent = challenges.length;
+  document.getElementById('s-done').textContent = done;
+  document.getElementById('s-pts-earned').textContent = ptsEarned.toLocaleString();
+  document.getElementById('s-pts-total').textContent = ptsTotal.toLocaleString();
+}
+
+function renderRow(c) {
+  const done = !c.hidden && c.current >= c.total;
+  const curColor = done ? 'color:var(--green)' : 'color:var(--text)';
+  let statusBadge;
+  if (c.hidden) statusBadge = `<span style="color:#cd853f;font-size:13px">Hidden</span>`;
+  else if (done) statusBadge = `<span class="done-badge">✓ Done</span>`;
+  else if (c.current > 0) statusBadge = `<span style="color:#f0c040;font-size:13px">In Progress</span>`;
+  else statusBadge = `<span style="color:var(--text-muted);font-size:13px">Not Started</span>`;
+
+  const hideBtnClass = c.hidden ? 'hide-btn is-hidden' : 'hide-btn';
+  const hideBtnLabel = c.hidden ? '🔒 Hidden' : '👁 Visible';
+
+  return `<tr data-id="${c.id}" class="${c.hidden ? 'row-hidden' : ''}">
+    <td>
+      <span class="challenge-name" contenteditable="true"
+        onblur="saveName('${c.id}',this)"
+        onkeydown="blurOnEnter(event)">
+        ${esc(c.name)}
+      </span>
+    </td>
+    <td>
+      <div class="progress-cell">
+        <button class="pbtn" onclick="adj('${c.id}',-1)" ${c.current<=0?'disabled':''}>−</button>
+        <span class="fraction">
+          <span class="cur" style="${curColor}">${c.current}</span>
+          <span class="sep"> / </span>
+          <span class="tot" onclick="editTotal('${c.id}',this)" title="Click to edit target">${c.total}</span>
+        </span>
+        <button class="pbtn" onclick="adj('${c.id}',1)" ${c.current>=c.total?'disabled':''}>+</button>
+      </div>
+    </td>
+    <td>
+      <span class="points-field" contenteditable="true"
+        onblur="savePoints('${c.id}',this)"
+        onkeydown="blurOnEnter(event)">
+        ${c.points}
+      </span>
+      <span style="color:var(--text-muted);font-size:13px"> pts</span>
+    </td>
+    <td>${statusBadge}</td>
+    <td><button class="${hideBtnClass}" onclick="toggleHidden('${c.id}')">${hideBtnLabel}</button></td>
+    <td><button class="del-btn" onclick="del('${c.id}')" title="Delete">✕</button></td>
+  </tr>`;
+}
+
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function blurOnEnter(e) { if(e.key==='Enter'){e.preventDefault();e.target.blur();} if(e.key==='Escape')e.target.blur(); }
+
+async function adj(id, delta) {
+  const c = challenges.find(x=>x.id===id);
+  if (!c) return;
+  const nv = Math.max(0, Math.min(c.total, c.current + delta));
+  if (nv === c.current) return;
+  await api('PATCH', `/api/challenges/${id}`, {current:nv});
+  c.current = nv;
+  render();
+}
+
+async function saveName(id, el) {
+  const name = el.textContent.trim();
+  const c = challenges.find(x=>x.id===id);
+  if (!c || !name || c.name===name) return;
+  await api('PATCH', `/api/challenges/${id}`, {name});
+  c.name = name;
+}
+
+async function savePoints(id, el) {
+  const pts = parseInt(el.textContent) || 0;
+  const c = challenges.find(x=>x.id===id);
+  if (!c || c.points===pts) return;
+  await api('PATCH', `/api/challenges/${id}`, {points:pts});
+  c.points = pts;
+  render();
+}
+
+function editTotal(id, el) {
+  const c = challenges.find(x=>x.id===id);
+  if (!c) return;
+  const val = prompt('Set target amount:', c.total);
+  if (val===null) return;
+  const t = Math.max(1, parseInt(val)||1);
+  api('PATCH', `/api/challenges/${id}`, {total:t, current:Math.min(c.current,t)}).then(()=>{
+    c.total=t; c.current=Math.min(c.current,t); render();
+  });
+}
+
+async function toggleHidden(id) {
+  const c = challenges.find(x => x.id === id);
+  if (!c) return;
+  await api('PATCH', `/api/challenges/${id}`, { hidden: !c.hidden });
+  c.hidden = !c.hidden;
+  render();
+}
+
+async function del(id) {
+  if (!confirm('Delete this challenge?')) return;
+  await api('DELETE', `/api/challenges/${id}`);
+  challenges = challenges.filter(x=>x.id!==id);
+  render();
+}
+
+function editWeek() {
+  const v = prompt('Week label:', weekLabel);
+  if (v===null) return;
+  weekLabel = v || weekLabel;
+  document.getElementById('week-label').textContent = weekLabel;
+  api('POST','/api/week',{label:weekLabel});
+}
+
+function newWeek() {
+  const v = prompt('New week label (leave blank to keep current):', weekLabel);
+  if (v===null) return;
+  if (!confirm('Reset all challenge progress to 0?')) return;
+  const label = v.trim() || weekLabel;
+  api('POST','/api/new-week',{label}).then(()=>load());
+}
+
+// Add modal
+function openModal() {
+  document.getElementById('m-name').value='';
+  document.getElementById('m-total').value='1';
+  document.getElementById('m-points').value='0';
+  document.getElementById('m-hidden').checked=false;
+  document.getElementById('modal').classList.add('open');
+  setTimeout(()=>document.getElementById('m-name').focus(), 60);
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+async function addChallenge() {
+  const hidden = document.getElementById('m-hidden').checked;
+  const name = document.getElementById('m-name').value.trim() || (hidden ? 'Not Revealed Yet' : '');
+  if (!name) { document.getElementById('m-name').focus(); return; }
+  const total = parseInt(document.getElementById('m-total').value)||1;
+  const points = parseInt(document.getElementById('m-points').value)||0;
+  const c = await api('POST','/api/challenges',{name,total,points,hidden});
+  challenges.push(c);
+  render();
+  closeModal();
+}
+
+document.addEventListener('keydown', e=>{
+  if(e.key==='Escape') closeModal();
+});
+document.getElementById('modal').addEventListener('click', e=>{
+  if(e.target===e.currentTarget) closeModal();
+});
+
+async function api(method, url, body) {
+  const opts = { method, headers:{'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(url, opts);
+  if (!r.ok) return null;
+  return r.json().catch(()=>null);
+}
+
+load();
+</script>
+</body>
+</html>
