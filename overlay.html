@@ -148,10 +148,15 @@ function render(data) {
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.database();
 
-// Real-time listener — updates the overlay the instant you change anything in admin
-db.ref('/').on('value', snap => {
-  render(snap.val() || {});
-});
+async function refresh() {
+  try {
+    const snap = await db.ref('/').once('value');
+    render(snap.val() || {});
+  } catch(e) {}
+}
+
+refresh();
+setInterval(refresh, 3000);
 </script>
 </body>
 </html>
