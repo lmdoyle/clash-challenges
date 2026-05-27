@@ -3,11 +3,11 @@
 // → Your project → Project Settings → Your apps → Firebase SDK snippet → Config
 
 const FIREBASE_CONFIG = {
-  apiKey:            "PASTE_YOUR_API_KEY_HERE",
-  authDomain:        "PASTE_YOUR_PROJECT_ID.firebaseapp.com",
-  databaseURL:       "https://PASTE_YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId:         "PASTE_YOUR_PROJECT_ID",
-  storageBucket:     "PASTE_YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "PASTE_YOUR_MESSAGING_SENDER_ID",
-  appId:             "PASTE_YOUR_APP_ID"
+  apiKey: "AIzaSyA4qGtP5JkLLh_4lRimPBzDQfmv-Cqn_MA",
+  authDomain: "clash-of-clans-challenges.firebaseapp.com",
+  databaseURL: "https://clash-of-clans-challenges-default-rtdb.firebaseio.com",
+  projectId: "clash-of-clans-challenges",
+  storageBucket: "clash-of-clans-challenges.firebasestorage.app",
+  messagingSenderId: "984170684197",
+  appId: "1:984170684197:web:6e8022e5d6aa9c0a6404cc"
 };
