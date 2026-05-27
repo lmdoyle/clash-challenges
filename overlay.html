@@ -127,9 +127,11 @@ function render(data) {
       </div>`;
   }).join('');
 
+  function pts(c) { return c.current * 50 + (c.current >= c.total ? 100 : 0); }
+  function maxPts(c) { return c.total * 50 + 100; }
   const visible = challenges.filter(c => !c.hidden);
-  const ptsEarned = visible.filter(c => c.current >= c.total).reduce((s,c) => s + c.points, 0);
-  const ptsTotal = visible.reduce((s,c) => s + c.points, 0);
+  const ptsEarned = visible.reduce((s,c) => s + pts(c), 0);
+  const ptsTotal = visible.reduce((s,c) => s + maxPts(c), 0);
   const pct = ptsTotal > 0 ? Math.round(ptsEarned / ptsTotal * 100) : 0;
   document.getElementById('pts-earned').textContent = ptsEarned.toLocaleString();
   document.getElementById('pts-total').textContent = ptsTotal.toLocaleString();

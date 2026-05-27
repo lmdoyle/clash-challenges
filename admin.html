@@ -294,7 +294,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
     <tr>
       <th style="width:38%">Card</th>
       <th>Progress</th>
-      <th>Points</th>
+      <th>Season Pts</th>
       <th>Status</th>
       <th>Overlay</th>
       <th style="width:48px"></th>
@@ -310,10 +310,7 @@ tr:hover td { background: rgba(255,255,255,0.02); }
       <label>Card Label</label>
       <input type="text" id="m-name" placeholder="e.g. May 27">
     </div>
-    <div class="form-row">
-      <div class="fg"><label>Target</label><input type="number" id="m-total" value="8" min="1"></div>
-      <div class="fg"><label>Points</label><input type="number" id="m-points" value="0" min="0"></div>
-    </div>
+    <div class="fg"><label>Target</label><input type="number" id="m-total" value="8" min="1"></div>
     <div class="fg" style="display:flex;align-items:center;gap:10px;margin-top:4px">
       <input type="checkbox" id="m-hidden" style="width:auto;accent-color:var(--gold)">
       <label for="m-hidden" style="margin:0;cursor:pointer">Mark as Hidden (Not Revealed Yet on overlay)</label>
@@ -349,6 +346,13 @@ async function load() {
   render();
 }
 
+function cardPoints(c) {
+  return c.current * 50 + (c.current >= c.total ? 100 : 0);
+}
+function cardMaxPoints(c) {
+  return c.total * 50 + 100;
+}
+
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function blurOnEnter(e) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } if (e.key === 'Escape') e.target.blur(); }
 
@@ -360,8 +364,8 @@ function render() {
     tbody.innerHTML = challenges.map(renderRow).join('');
   }
   const done = challenges.filter(c => !c.hidden && c.current >= c.total).length;
-  const ptsEarned = challenges.filter(c => !c.hidden && c.current >= c.total).reduce((s,c) => s + c.points, 0);
-  const ptsTotal = challenges.filter(c => !c.hidden).reduce((s,c) => s + c.points, 0);
+  const ptsEarned = challenges.filter(c => !c.hidden).reduce((s,c) => s + cardPoints(c), 0);
+  const ptsTotal = challenges.filter(c => !c.hidden).reduce((s,c) => s + cardMaxPoints(c), 0);
   document.getElementById('s-total').textContent = challenges.length;
   document.getElementById('s-done').textContent = done;
   document.getElementById('s-pts-earned').textContent = ptsEarned.toLocaleString();
@@ -394,8 +398,8 @@ function renderRow(c) {
       </div>
     </td>
     <td>
-      <span class="points-field" contenteditable="true" onblur="savePoints('${c.id}',this)" onkeydown="blurOnEnter(event)">${c.points}</span>
-      <span style="color:var(--text-muted);font-size:13px"> pts</span>
+      <span style="font-weight:600;color:var(--gold-light)">${cardPoints(c)}</span>
+      <span style="color:var(--text-muted);font-size:13px"> pts${c.current >= c.total ? ' (+100 bonus)' : ''}</span>
     </td>
     <td>${statusBadge}</td>
     <td><button class="hide-btn ${c.hidden?'is-hidden':''}" onclick="toggleHidden('${c.id}')">${c.hidden?'🔒 Hidden':'👁 Visible'}</button></td>
@@ -432,14 +436,6 @@ async function saveName(id, el) {
   c.name = name;
 }
 
-async function savePoints(id, el) {
-  const pts = parseInt(el.textContent) || 0;
-  const c = challenges.find(x => x.id === id);
-  if (!c || c.points === pts) return;
-  await db.ref(`/challenges/${id}/points`).set(pts);
-  c.points = pts;
-  render();
-}
 
 function editTotal(id) {
   const c = challenges.find(x => x.id === id);
@@ -504,9 +500,8 @@ async function addChallenge() {
   const name = document.getElementById('m-name').value.trim() || (hidden ? 'Not Revealed Yet' : '');
   if (!name) { document.getElementById('m-name').focus(); return; }
   const total = parseInt(document.getElementById('m-total').value) || 1;
-  const points = parseInt(document.getElementById('m-points').value) || 0;
   const newRef = db.ref('/challenges').push();
-  const c = { name, current: 0, total, points, hidden: !!hidden };
+  const c = { name, current: 0, total, hidden: !!hidden };
   await newRef.set(c);
   challenges.push({ id: newRef.key, ...c });
   render();
