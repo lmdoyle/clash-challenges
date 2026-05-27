@@ -276,9 +276,9 @@ tr:hover td { background: rgba(255,255,255,0.02); }
 <header>
   <div class="logo">⚔️ CoC Challenges</div>
   <div class="week-label">
-    <span id="week-label" onclick="editWeek()">Weekly Challenges</span>
+    <span id="week-label" onclick="editWeek()">Monthly Challenges</span>
   </div>
-  <button class="btn btn-outline" onclick="newWeek()">🔄 New Week</button>
+  <button class="btn btn-outline" onclick="newWeek()">🔄 New Month</button>
   <button class="btn btn-gold" onclick="openModal()">+ Add Challenge</button>
 </header>
 
@@ -340,7 +340,7 @@ let weekLabel = '';
 async function load() {
   const snap = await db.ref('/').once('value');
   const data = snap.val() || {};
-  weekLabel = data.weekLabel || 'Weekly Challenges';
+  weekLabel = data.weekLabel || 'Monthly Challenges';
   const ch = data.challenges || {};
   challenges = Object.entries(ch)
     .sort(([a], [b]) => a.localeCompare(b))
@@ -469,7 +469,7 @@ async function toggleHidden(id) {
 }
 
 function editWeek() {
-  const v = prompt('Week label:', weekLabel);
+  const v = prompt('Month label:', weekLabel);
   if (v === null) return;
   weekLabel = v || weekLabel;
   document.getElementById('week-label').textContent = weekLabel;
@@ -477,7 +477,7 @@ function editWeek() {
 }
 
 function newWeek() {
-  const v = prompt('New week label:', weekLabel);
+  const v = prompt('New month label:', weekLabel);
   if (v === null) return;
   if (!confirm('Reset all challenge progress to 0?')) return;
   weekLabel = v.trim() || weekLabel;
