@@ -383,7 +383,10 @@ function renderRow(c) {
       <div class="progress-cell">
         <button class="pbtn" onclick="adj('${c.id}',-1)" ${c.current<=0?'disabled':''}>−</button>
         <span class="fraction">
-          <span class="cur" style="${curColor}">${c.current}</span>
+          <span class="cur" style="${curColor}" contenteditable="true"
+            onblur="saveCurrent('${c.id}',this)"
+            onkeydown="blurOnEnter(event)"
+            title="Click to edit">${c.current}</span>
           <span class="sep"> / </span>
           <span class="tot" onclick="editTotal('${c.id}')" title="Click to edit target">${c.total}</span>
         </span>
@@ -398,6 +401,17 @@ function renderRow(c) {
     <td><button class="hide-btn ${c.hidden?'is-hidden':''}" onclick="toggleHidden('${c.id}')">${c.hidden?'🔒 Hidden':'👁 Visible'}</button></td>
     <td><button class="del-btn" onclick="del('${c.id}')">✕</button></td>
   </tr>`;
+}
+
+async function saveCurrent(id, el) {
+  const c = challenges.find(x => x.id === id);
+  if (!c) return;
+  const nv = Math.max(0, Math.min(c.total, parseInt(el.textContent) || 0));
+  el.textContent = nv;
+  if (nv === c.current) return;
+  await db.ref(`/challenges/${id}/current`).set(nv);
+  c.current = nv;
+  render();
 }
 
 async function adj(id, delta) {
